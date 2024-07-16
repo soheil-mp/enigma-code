@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "enigma-code"
+version = "0.1.0"
+description = "A library designed for managing and handling tasks that utilize LLMs."
+authors = ["Soheil"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "3.9.19"
+pandas = "^2.2.2"
+langchain = "^0.2.8"
+langchain-community = "^0.2.7"
+matplotlib = "^3.9.1"
+faiss-gpu = "^1.7.2"
+faiss-cpu = "^1.8.0.post1"
+pinecone = "^4.0.0"
+chroma = "^0.2.0"
+ipykernel = "^6.29.5"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
