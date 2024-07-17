@@ -1,7 +1,7 @@
 
 # Import the libraries
 import pytest
-from src.data import DataHandler
+from enigma_code.data import DataHandler
 
 # Fixture for creating a DataHandler instance
 @pytest.fixture

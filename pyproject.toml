@@ -16,6 +16,14 @@ faiss-cpu = "^1.8.0.post1"
 pinecone = "^4.0.0"
 chroma = "^0.2.0"
 ipykernel = "^6.29.5"
+tiktoken = "^0.7.0"
+transformers = "^4.42.4"
+sentence-transformers = "^3.0.1"
+pycparser = "^2.22"
+lxml = "^5.2.2"
+mysql-connector = "^2.2.9"
+cohere = "^5.6.1"
+openai = "^1.35.14"
 
 
 [build-system]
