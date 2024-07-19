@@ -125,21 +125,17 @@ class DataHandler:
         return chunks                                                                                                                                                                                                    
    
 
-# Class for loading datasets from various databases on cloud
+
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine.url import URL
+
 class DatabaseQueryTool:
     """
     Class for loading datasets from various databases using SQLAlchemy.
     Supports MySQL, PostgreSQL, and SQLite databases.
     """
     
-    # Supported database connection templates
-    SUPPORTED_DATABASES = {
-        "mysql": "mysql+mysqlconnector://{username}:{password}@{host}",
-        "postgresql": "postgresql+psycopg2://{username}:{password}@{host}",
-        "sqlite": "sqlite:///{host}"
-    }
-
-    def __init__(self, database_type, username, password, host):
+    def __init__(self, database_type, username, password, host, database, port=3306):
         """
         Initialize the DatabaseLoader with database connection details.
 
@@ -147,11 +143,15 @@ class DatabaseQueryTool:
         :param username: Username for the database
         :param password: Password for the database
         :param host: Host address of the database
+        :param database: Name of the database
+        :param port: Port number for the database connection
         """
         self.database_type = database_type.lower()
         self.username = username
         self.password = password
         self.host = host
+        self.database = database
+        self.port = port
         self.engine = self._create_engine()
 
     def _create_engine(self):
@@ -161,16 +161,34 @@ class DatabaseQueryTool:
         :return: SQLAlchemy engine
         :raises ValueError: If the database type is unsupported
         """
-        if self.database_type not in self.SUPPORTED_DATABASES:
+        if self.database_type not in ['mysql', 'postgresql', 'sqlite']:
             raise ValueError(f"Unsupported database type: {self.database_type}")
         
-        # Format the connection string using the provided details
-        connection_string = self.SUPPORTED_DATABASES[self.database_type].format(
-            username=self.username,
-            password=self.password,
-            host=self.host
-        )
-        return create_engine(connection_string)
+        if self.database_type == 'mysql':
+            db_config = {
+                'drivername': 'mysql+pymysql',
+                'username': self.username,
+                'password': self.password,
+                'host': self.host,
+                'port': self.port,
+                'database': self.database
+            }
+
+            ssl_args = {
+                'ssl': {
+                    'verify_cert': False,
+                    'ssl_mode': 'VERIFY_IDENTITY'
+                }
+            }
+
+            return create_engine(
+                URL.create(**db_config),
+                connect_args=ssl_args
+            )
+        elif self.database_type == 'postgresql':
+            return create_engine(f'postgresql+psycopg2://{self.username}:{self.password}@{self.host}/{self.database}')
+        else:  # sqlite
+            return create_engine(f'sqlite:///{self.host}')
 
     def run_sql_query(self, query):
         """
@@ -179,7 +197,6 @@ class DatabaseQueryTool:
         :param query: SQL query to be executed
         :return: List of results from the query
         """
-        # Open a connection to the database and execute the query
         with self.engine.connect() as connection:
             result = connection.execute(text(query))
             return result.fetchall()
