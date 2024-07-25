@@ -33,6 +33,9 @@ wandb = "^0.17.4"
 bitsandbytes = "^0.43.1"
 groq = "^0.9.0"
 langgraph = "^0.1.9"
+langchain-groq = "^0.1.6"
+chromadb = "^0.5.4"
+ollama = "^0.3.0"
 
 
 [build-system]
