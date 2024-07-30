@@ -1,4 +1,5 @@
 
+
 # Import the libraries
 import openai
 import os
@@ -29,9 +30,6 @@ from langchain_core.runnables import Runnable, RunnableConfig
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, StateGraph, START
 
-# Change the path to the root directory
-os.chdir('..')
-
 # Import the local modules
 import enigma_code
 from enigma_code import data, vectorstore, rag, agents
@@ -39,6 +37,8 @@ from enigma_code.tools.car_rental import *
 from enigma_code.tools.flights import *
 from enigma_code.tools.hotels import *
 from enigma_code.tools.excursions import *
+from enigma_code.tools.assistant import *
+from enigma_code.tools.rag import *
 from enigma_code.prompts import *
 
 # Reload the imported modules
@@ -47,6 +47,3 @@ importlib.reload(data)
 importlib.reload(vectorstore)
 importlib.reload(rag)
 importlib.reload(agents)
-
-# Change the path back to the notebooks directory
-os.chdir('notebooks')

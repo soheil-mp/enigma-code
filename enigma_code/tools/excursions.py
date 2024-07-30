@@ -1,31 +1,41 @@
 
-# Import the libraries
+import sys
 import os
-import shutil
-import sqlite3
-import json
-import pandas as pd
-import requests
-import re
-import numpy as np
-from langchain_core.tools import tool
-from typing import Optional, Union, Literal, Annotated, Callable
-from datetime import date, datetime
-import pytz
-from langchain_core.runnables import ensure_config, RunnableLambda
-from langchain_core.messages import ToolMessage
-from langgraph.prebuilt import ToolNode, tools_condition
-from IPython.display import Image, display
-import importlib
-import uuid
-from typing_extensions import TypedDict
-from langgraph.graph.message import AnyMessage, add_messages
-from langchain_community.tools.tavily_search import TavilySearchResults
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.pydantic_v1 import BaseModel, Field
-from langchain_core.runnables import Runnable, RunnableConfig
-from langgraph.checkpoint.sqlite import SqliteSaver
-from langgraph.graph import END, StateGraph, START
+
+# Add the parent directory to the system path
+sys.path.append(os.path.abspath(os.path.join('./../..')))
+
+# Import all modules
+from imports import *
+
+def run_query(query: str, params: tuple = (), fetch_all: bool = True) -> Union[list[dict], None]:
+    """
+    Run an SQL query and return the results.
+
+    Args:
+        query (str): The SQL query to execute.
+        params (tuple): The parameters to use with the SQL query.
+        fetch_all (bool): Whether to fetch all results or just execute the query.
+
+    Returns:
+        Union[list[dict], None]: The results of the query as a list of dictionaries, or None for non-SELECT queries.
+    """
+    db = "travel2.sqlite"
+    conn = sqlite3.connect(db)
+    cursor = conn.cursor()
+    cursor.execute(query, params)
+    
+    if fetch_all:
+        results = cursor.fetchall()
+        columns = [column[0] for column in cursor.description]
+        results = [dict(zip(columns, row)) for row in results]
+    else:
+        results = None
+        conn.commit()
+    
+    cursor.close()
+    conn.close()
+    return results
 
 @tool
 def search_trip_recommendations(
@@ -44,12 +54,6 @@ def search_trip_recommendations(
     Returns:
         list[dict]: A list of trip recommendation dictionaries matching the search criteria.
     """
-    print(f"CALLING THE '{search_trip_recommendations.__name__}' FUNCTION")
-    # TODO: Set the local file as the database to be used in the tutorial
-    db = "travel2.sqlite"
-    conn = sqlite3.connect(db)
-    cursor = conn.cursor()
-
     query = "SELECT * FROM trip_recommendations WHERE 1=1"
     params = []
 
@@ -65,16 +69,8 @@ def search_trip_recommendations(
         query += f" AND ({keyword_conditions})"
         params.extend([f"%{keyword.strip()}%" for keyword in keyword_list])
 
-    cursor.execute(query, params)
-    results = cursor.fetchall()
-
-    conn.close()
-
-    results = [
-        dict(zip([column[0] for column in cursor.description], row)) for row in results
-    ]
-
-    return results
+    results = run_query(query, tuple(params))
+    return json.dumps(results, indent=2)
 
 @tool
 def book_excursion(recommendation_id: int) -> str:
@@ -87,24 +83,9 @@ def book_excursion(recommendation_id: int) -> str:
     Returns:
         str: A message indicating whether the trip recommendation was successfully booked or not.
     """
-    print(f"CALLING THE '{book_excursion.__name__}' FUNCTION")
-    # TODO: Set the local file as the database to be used in the tutorial
-    db = "travel2.sqlite"
-    conn = sqlite3.connect(db)
-    cursor = conn.cursor()
-
-    cursor.execute(
-        "UPDATE trip_recommendations SET booked = 1 WHERE id = ?", (recommendation_id,)
-    )
-    conn.commit()
-
-    if cursor.rowcount > 0:
-        conn.close()
-        return f"Trip recommendation {recommendation_id} successfully booked."
-    else:
-        conn.close()
-        return f"No trip recommendation found with ID {recommendation_id}."
-    
+    query = "UPDATE trip_recommendations SET booked = 1 WHERE id = ?"
+    run_query(query, (recommendation_id,), fetch_all=False)
+    return f"Trip recommendation {recommendation_id} successfully booked."
 
 @tool
 def update_excursion(recommendation_id: int, details: str) -> str:
@@ -118,25 +99,10 @@ def update_excursion(recommendation_id: int, details: str) -> str:
     Returns:
         str: A message indicating whether the trip recommendation was successfully updated or not.
     """
-    print(f"CALLING THE '{update_excursion.__name__}' FUNCTION")
-    # TODO: Set the local file as the database to be used in the tutorial
-    db = "travel2.sqlite"
-    conn = sqlite3.connect(db)
-    cursor = conn.cursor()
+    query = "UPDATE trip_recommendations SET details = ? WHERE id = ?"
+    run_query(query, (details, recommendation_id), fetch_all=False)
+    return f"Trip recommendation {recommendation_id} successfully updated."
 
-    cursor.execute(
-        "UPDATE trip_recommendations SET details = ? WHERE id = ?",
-        (details, recommendation_id),
-    )
-    conn.commit()
-
-    if cursor.rowcount > 0:
-        conn.close()
-        return f"Trip recommendation {recommendation_id} successfully updated."
-    else:
-        conn.close()
-        return f"No trip recommendation found with ID {recommendation_id}."
-    
 @tool
 def cancel_excursion(recommendation_id: int) -> str:
     """
@@ -148,20 +114,6 @@ def cancel_excursion(recommendation_id: int) -> str:
     Returns:
         str: A message indicating whether the trip recommendation was successfully cancelled or not.
     """
-    print(f"CALLING THE '{cancel_excursion.__name__}' FUNCTION")
-    # TODO: Set the local file as the database to be used in the tutorial
-    db = "travel2.sqlite"
-    conn = sqlite3.connect(db)
-    cursor = conn.cursor()
-
-    cursor.execute(
-        "UPDATE trip_recommendations SET booked = 0 WHERE id = ?", (recommendation_id,)
-    )
-    conn.commit()
-
-    if cursor.rowcount > 0:
-        conn.close()
-        return f"Trip recommendation {recommendation_id} successfully cancelled."
-    else:
-        conn.close()
-        return f"No trip recommendation found with ID {recommendation_id}."
+    query = "UPDATE trip_recommendations SET booked = 0 WHERE id = ?"
+    run_query(query, (recommendation_id,), fetch_all=False)
+    return f"Trip recommendation {recommendation_id} successfully cancelled."

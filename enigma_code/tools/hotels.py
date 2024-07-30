@@ -1,31 +1,33 @@
 
-# Import the libraries
+import sys
 import os
-import shutil
-import sqlite3
-import json
-import pandas as pd
-import requests
-import re
-import numpy as np
-from langchain_core.tools import tool
-from typing import Optional, Union, Literal, Annotated, Callable
-from datetime import date, datetime
-import pytz
-from langchain_core.runnables import ensure_config, RunnableLambda
-from langchain_core.messages import ToolMessage
-from langgraph.prebuilt import ToolNode, tools_condition
-from IPython.display import Image, display
-import importlib
-import uuid
-from typing_extensions import TypedDict
-from langgraph.graph.message import AnyMessage, add_messages
-from langchain_community.tools.tavily_search import TavilySearchResults
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.pydantic_v1 import BaseModel, Field
-from langchain_core.runnables import Runnable, RunnableConfig
-from langgraph.checkpoint.sqlite import SqliteSaver
-from langgraph.graph import END, StateGraph, START
+
+# Add the parent directory to the system path
+sys.path.append(os.path.abspath(os.path.join('./../..')))
+
+# Import all modules
+from imports import *
+
+
+def run_query(query: str, params: tuple = ()) -> list[dict]:
+    """
+    Run an SQL query and return the results.
+
+    Args:
+        query (str): The SQL query to execute.
+        params (tuple): The parameters to use with the SQL query.
+
+    Returns:
+        list[dict]: The results of the query as a list of dictionaries.
+    """
+    db = "travel2.sqlite"
+    conn = sqlite3.connect(db)
+    cursor = conn.cursor()
+    cursor.execute(query, params)
+    results = cursor.fetchall()
+    conn.close()
+    
+    return [dict(zip([column[0] for column in cursor.description], row)) for row in results]
 
 @tool
 def search_hotels(
@@ -48,12 +50,6 @@ def search_hotels(
     Returns:
         list[dict]: A list of hotel dictionaries matching the search criteria.
     """
-    print(f"CALLING THE '{search_hotels.__name__}' FUNCTION")
-    # TODO: Set the local file as the database to be used in the tutorial
-    db = "travel2.sqlite"
-    conn = sqlite3.connect(db)
-    cursor = conn.cursor()
-
     query = "SELECT * FROM hotels WHERE 1=1"
     params = []
 
@@ -63,16 +59,17 @@ def search_hotels(
     if name:
         query += " AND name LIKE ?"
         params.append(f"%{name}%")
-    # For the sake of this tutorial, we will let you match on any dates and price tier.
-    cursor.execute(query, params)
-    results = cursor.fetchall()
+    if price_tier:
+        query += " AND price_tier = ?"
+        params.append(price_tier)
+    if checkin_date:
+        query += " AND checkin_date >= ?"
+        params.append(checkin_date)
+    if checkout_date:
+        query += " AND checkout_date <= ?"
+        params.append(checkout_date)
 
-    conn.close()
-
-    results = [
-        dict(zip([column[0] for column in cursor.description], row)) for row in results
-    ]
-
+    results = run_query(query, tuple(params))
     return json.dumps(results, indent=2)
 
 @tool
@@ -86,22 +83,12 @@ def book_hotel(hotel_id: int) -> str:
     Returns:
         str: A message indicating whether the hotel was successfully booked or not.
     """
-    print(f"CALLING THE '{book_hotel.__name__}' FUNCTION")
-    # TODO: Set the local file as the database to be used in the tutorial
-    db = "travel2.sqlite"
-    conn = sqlite3.connect(db)
-    cursor = conn.cursor()
+    query = "UPDATE hotels SET booked = 1 WHERE id = ?"
+    params = (hotel_id,)
+    run_query(query, params)
 
-    cursor.execute("UPDATE hotels SET booked = 1 WHERE id = ?", (hotel_id,))
-    conn.commit()
+    return f"Hotel {hotel_id} successfully booked."
 
-    if cursor.rowcount > 0:
-        conn.close()
-        return f"Hotel {hotel_id} successfully booked."
-    else:
-        conn.close()
-        return f"No hotel found with ID {hotel_id}."
-    
 @tool
 def update_hotel(
     hotel_id: int,
@@ -119,31 +106,17 @@ def update_hotel(
     Returns:
         str: A message indicating whether the hotel was successfully updated or not.
     """
-    print(f"CALLING THE '{update_hotel.__name__}' FUNCTION")
-    # TODO: Set the local file as the database to be used in the tutorial
-    db = "travel2.sqlite"
-    conn = sqlite3.connect(db)
-    cursor = conn.cursor()
-
     if checkin_date:
-        cursor.execute(
-            "UPDATE hotels SET checkin_date = ? WHERE id = ?", (checkin_date, hotel_id)
-        )
+        query = "UPDATE hotels SET checkin_date = ? WHERE id = ?"
+        params = (checkin_date, hotel_id)
+        run_query(query, params)
     if checkout_date:
-        cursor.execute(
-            "UPDATE hotels SET checkout_date = ? WHERE id = ?",
-            (checkout_date, hotel_id),
-        )
+        query = "UPDATE hotels SET checkout_date = ? WHERE id = ?"
+        params = (checkout_date, hotel_id)
+        run_query(query, params)
 
-    conn.commit()
+    return f"Hotel {hotel_id} successfully updated."
 
-    if cursor.rowcount > 0:
-        conn.close()
-        return f"Hotel {hotel_id} successfully updated."
-    else:
-        conn.close()
-        return f"No hotel found with ID {hotel_id}."
-    
 @tool
 def cancel_hotel(hotel_id: int) -> str:
     """
@@ -155,18 +128,9 @@ def cancel_hotel(hotel_id: int) -> str:
     Returns:
         str: A message indicating whether the hotel was successfully cancelled or not.
     """
-    print(f"CALLING THE '{cancel_hotel.__name__}' FUNCTION")
-    # TODO: Set the local file as the database to be used in the tutorial
-    db = "travel2.sqlite"
-    conn = sqlite3.connect(db)
-    cursor = conn.cursor()
+    query = "UPDATE hotels SET booked = 0 WHERE id = ?"
+    params = (hotel_id,)
+    run_query(query, params)
 
-    cursor.execute("UPDATE hotels SET booked = 0 WHERE id = ?", (hotel_id,))
-    conn.commit()
+    return f"Hotel {hotel_id} successfully cancelled."
 
-    if cursor.rowcount > 0:
-        conn.close()
-        return f"Hotel {hotel_id} successfully cancelled."
-    else:
-        conn.close()
-        return f"No hotel found with ID {hotel_id}."
